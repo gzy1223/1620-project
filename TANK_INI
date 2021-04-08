@@ -1,0 +1,176 @@
+#include "mbed.h"
+#include "stm32f413h_discovery_ts.h"
+#include "stm32f413h_discovery_lcd.h"
+
+#include <cmath>
+
+#define SCREEN_X_LEN 240
+#define SCREEN_Y_LEN 240
+#define SIZE_TANK 5
+
+#define INI_POS_X_PLAYER 120
+#define INI_POS_Y_PLAYER 220
+
+#define INI_POS_X_ENEMY 120
+#define INI_POS_Y_ENEMY 20
+
+
+TS_StateTypeDef TS_State = {0};
+struct position
+{
+    int x;
+    int y;
+};
+/*Touch screen initial h file*/
+class iniTouchscreen
+{
+private:
+public:
+    void initial();
+    int touch();
+};
+/*Touch screen CPP file*/
+
+void iniTouchscreen::initial()
+{
+    printf("Touch screen to begin!\n");
+
+    BSP_LCD_Init();
+
+    /* Touchscreen initialization */
+    if (BSP_TS_Init(BSP_LCD_GetXSize(), BSP_LCD_GetYSize()) == TS_ERROR)
+    {
+        printf("BSP_TS_Init error\n");
+    }
+    /* Clear the LCD */
+    BSP_LCD_Clear(LCD_COLOR_WHITE);
+}
+
+class Map
+{
+private:
+public:
+    void creat_map();
+    int *move_range();
+    void change_move_range();
+    int **create_space_array();
+};
+
+int **Map::create_space_array()
+{
+    int **range = new int *[SCREEN_X_LEN];
+    for (int i = 0; i < SCREEN_X_LEN; i++)
+    {
+        range[i] = new int[SCREEN_Y_LEN];
+    }
+    for (int x = 0; x < SCREEN_X_LEN; x++)
+    {
+        for (int y = 0; y < SCREEN_Y_LEN; y++)
+        {
+            if (x == 0 || x == 1 || x == 2 || x == 3 || y == 0 || y == 1 || y == 2 || y == 3 || x == 237 || x == 238 || x == 239 || x == 240 || y == 237 || y == 238 || y == 239 || y == 240)
+            {
+                range[x][y] = 1;
+            }
+            else
+            {
+                range[x][y] = 0;
+            }
+            int x1 = INI_POS_X_PLAYER;
+            int y1 = INI_POS_Y_PLAYER;
+            for (int i = -SIZE_TANK; i < SIZE_TANK; i++)
+            {
+                for (int j = -SIZE_TANK; j < SIZE_TANK; j++)
+                {
+                    range[x1 + i][y1 + j] = 2;
+                }
+            }
+            int x2 = INI_POS_X_ENEMY;
+            int y2 = INI_POS_Y_ENEMY;
+            for (int i = -SIZE_TANK; i < SIZE_TANK; i++)
+            {
+                for (int j = -SIZE_TANK; j < SIZE_TANK; j++)
+                {
+                    range[x2 + i][y2 + j] = 2;
+                }
+            }
+        }
+    }
+    return range;
+}
+
+void Map::creat_map()
+{
+    int **range = create_space_array();
+    for (int x = 0; x < SCREEN_X_LEN; x++)
+    {
+        for (int y = 0; y < SCREEN_Y_LEN; y++)
+        {
+            switch (range[x][y])
+            {
+            case 0:
+                BSP_LCD_DrawPixel(x, y, 51 - 51 - 255);
+                break;
+            case 1:
+                BSP_LCD_DrawPixel(x, y, 0 - 0 - 0);
+                break;
+            case 2:
+                BSP_LCD_DrawPixel(x, y, 0 - 0 - 0);
+                break;
+            }
+        }
+    }
+}
+
+class Player
+{
+private:
+    int x1;
+    int y1;
+    Map Map;
+
+public:
+    position position;
+    void SetDirection();
+    void draw_player();
+    void initial_player();
+};
+
+void Player::SetDirection()
+{
+    if (TS_State.touchDetected)
+    {
+        /*Get the position of X and Y after the first touch*/
+        uint16_t x2 = TS_State.touchX[0];
+        uint16_t y2 = TS_State.touchY[0];
+
+        /*Get the different of x and y*/
+        int x_diff = x2 - position.x;
+        int y_diff = y2 - position.y;
+    }
+}
+
+int main()
+{
+    iniTouchscreen iniTouchscreen;
+    Map Map;
+    Player Player;
+    iniTouchscreen.initial();
+    BSP_LCD_DisplayStringAt(0, 15, (uint8_t *)"Touch the screen", CENTER_MODE);
+    Map.create_space_array();
+    Map.creat_map();
+    while (1)
+    {
+        BSP_TS_GetState(&TS_State);
+        if (TS_State.touchDetected)
+        {
+            /* One or dual touch have been detected          */
+
+            /* Get X and Y position of the first touch post calibrated */
+            uint16_t x1 = TS_State.touchX[0];
+            uint16_t y1 = TS_State.touchY[0];
+            BSP_LCD_SetTextColor(LCD_COLOR_RED);
+            BSP_LCD_FillCircle(x1, y1, 5);
+            wait_ms(10);
+        }
+    }
+}
